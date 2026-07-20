@@ -130,7 +130,7 @@ namespace RPG.Stats
         public static void Boot(int entityCapacity = DefaultEntityCapacity)
         {
             if (_initialized)
-                Debug.LogWarning("StatManager.Boot() called while already initialized — " +
+                StatLog.Warning("StatManager.Boot() called while already initialized — " +
                                  "re-initializing and discarding all existing entities and registrations.");
 
             _entityCapacity = entityCapacity;
@@ -215,7 +215,7 @@ namespace RPG.Stats
 
             if (definition == null)
             {
-                Debug.LogError("StatManager.RegisterStatDefinition: definition is null.");
+                StatLog.Error("StatManager.RegisterStatDefinition: definition is null.");
                 return false;
             }
 
@@ -225,7 +225,7 @@ namespace RPG.Stats
             if (definition.HasFormula &&
                 !StatFormulaEvaluator.Validate(definition.Formula, out string formulaError))
             {
-                Debug.LogError(
+                StatLog.Error(
                     $"StatManager.RegisterStatDefinition: stat {definition.StatId} " +
                     $"('{definition.DisplayName}') has an invalid formula: {formulaError}. " +
                     "Registration rejected.");
@@ -237,7 +237,7 @@ namespace RPG.Stats
             if (definition.HasDependencies &&
                 WouldCreateCycle(definition.StatId, definition.Dependencies, out int cycleDep))
             {
-                Debug.LogError(
+                StatLog.Error(
                     $"StatManager.RegisterStatDefinition: stat {definition.StatId} " +
                     $"('{definition.DisplayName}') declares a dependency on {cycleDep} that " +
                     "would create a dependency cycle. Registration rejected.");
@@ -281,13 +281,13 @@ namespace RPG.Stats
 
             if (definition == null)
             {
-                Debug.LogError("StatManager.OverrideStatDefinition: definition is null.");
+                StatLog.Error("StatManager.OverrideStatDefinition: definition is null.");
                 return false;
             }
 
             if (!_database.TryGetDefinition(definition.StatId, out var existing))
             {
-                Debug.LogError(
+                StatLog.Error(
                     $"StatManager.OverrideStatDefinition: stat {definition.StatId} is not " +
                     "registered — call RegisterStatDefinition first. Override rejected.");
                 return false;
@@ -297,7 +297,7 @@ namespace RPG.Stats
             if (definition.HasFormula &&
                 !StatFormulaEvaluator.Validate(definition.Formula, out string formulaError))
             {
-                Debug.LogError(
+                StatLog.Error(
                     $"StatManager.OverrideStatDefinition: stat {definition.StatId} " +
                     $"('{definition.DisplayName}') has an invalid formula: {formulaError}. " +
                     "Override rejected.");
@@ -307,7 +307,7 @@ namespace RPG.Stats
             if (definition.HasDependencies &&
                 WouldCreateCycle(definition.StatId, definition.Dependencies, out int cycleDep))
             {
-                Debug.LogError(
+                StatLog.Error(
                     $"StatManager.OverrideStatDefinition: stat {definition.StatId} " +
                     $"('{definition.DisplayName}') dependency on {cycleDep} would create a cycle. " +
                     "Override rejected.");
@@ -720,7 +720,7 @@ namespace RPG.Stats
 
             if (!slot.StatIdToSlot.TryGetValue(statId, out int si))
             {
-                Debug.LogWarning($"StatManager.AddModifier: entity {handle} doesn't have statId {statId}.");
+                StatLog.Warning($"StatManager.AddModifier: entity {handle} doesn't have statId {statId}.");
                 return;
             }
 
@@ -1456,7 +1456,7 @@ namespace RPG.Stats
                 if (!_cycleWarned)
                 {
                     _cycleWarned = true;
-                    Debug.LogError(
+                    StatLog.Error(
                         $"StatManager: recalculation depth exceeded {MaxRecalcDepth} while updating " +
                         $"stat {statId}. Aborting cascade to avoid a stack overflow — this indicates a " +
                         "dependency cycle.");
@@ -1757,7 +1757,7 @@ namespace RPG.Stats
         {
             if (!_initialized)
             {
-                Debug.LogError("StatManager not initialized.");
+                StatLog.Error("StatManager not initialized.");
                 return false;
             }
 

@@ -179,6 +179,7 @@ A unified inspector for all stat definitions. Draws identity, base value, and co
 | `StatManagerExtensions.cs` | Handle extension methods for stat operations |
 | `ResourcePoolExtensions.cs` | Handle extension methods for pool/shield operations |
 | `StatDebug.cs` | Debug structures (StatBreakdown, SnapshotDiff) and diff utilities |
+| `StatLog.cs` | Redirectable diagnostic sink for the runtime managers (defaults to the Unity console) |
 | `Editor/StatDefinitionEditor.cs` | Custom inspector with conditional derivation UI, formula preview, and dependency validation |
 | `Tests/StatSystemTests.cs` | Comprehensive EditMode test suite (Unity Test Framework) |
 | `Samples~/UsageExample/` | Importable usage-example sample (via Package Manager) |

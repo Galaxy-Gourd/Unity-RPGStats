@@ -239,6 +239,15 @@ stage, the final constrained value, and every contributing modifier with its sou
 allocates; it's for debug overlays and console commands, not hot paths. `DiffSaveData` works on captured structs, so
 you can diff two save files offline without live entities.
 
+Rejections and misuse warnings — a mod registering a cyclic dependency, a malformed formula, a modifier for a stat the
+entity doesn't have — go through `StatLog`, which writes to the Unity console by default. Point it somewhere else to
+route diagnostics into your own logging system, a mod loader's per-plugin log, or an in-game console:
+
+```csharp
+StatLog.Handler = (type, message) => MyGameLog.Write(type, message);
+StatLog.Reset(); // back to the Unity console
+```
+
 ## Implementation Components
 
 | Type | Role |
@@ -253,6 +262,7 @@ you can diff two save files offline without live entities.
 | `StatIds` | Integer constants for a starter set of stats — extend or replace with your own |
 | `StatManagerExtensions` / `ResourcePoolExtensions` | Handle extension methods for instance-style call sites |
 | `StatDebug` | `StatBreakdown`, `EntityStatSnapshot`, `SnapshotDiff` and the diff utilities |
+| `StatLog` | Redirectable sink for runtime diagnostics — defaults to the Unity console |
 | `StatDefinitionEditor` | Custom inspector: conditional derivation UI, formula ops with contextual fields, live infix preview, dependency validation |
 
 Both managers null their static state on `SubsystemRegistration`, so they're safe with domain reload disabled.

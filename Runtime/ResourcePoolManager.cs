@@ -122,7 +122,7 @@ namespace RPG.Stats
         public static void Boot(int entityCapacity = 256)
         {
             if (_initialized)
-                Debug.LogWarning("ResourcePoolManager.Boot() called while already initialized — " +
+                StatLog.Warning("ResourcePoolManager.Boot() called while already initialized — " +
                                  "re-initializing and discarding all existing pools.");
 
             _definitions    = System.Array.Empty<PoolDefinition>();

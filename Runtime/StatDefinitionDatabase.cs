@@ -56,7 +56,7 @@ namespace RPG.Stats
 
                 if (!_lookup.TryAdd(def.StatId, def))
                 {
-                    Debug.LogError($"StatDatabase: Duplicate statId {def.StatId} " +
+                    StatLog.Error($"StatDatabase: Duplicate statId {def.StatId} " +
                                    $"('{def.DisplayName}' vs '{_lookup[def.StatId].DisplayName}').");
                     continue;
                 }
@@ -74,7 +74,7 @@ namespace RPG.Stats
         public StatDefinition GetDefinition(int statId)
         {
             if (TryGetDefinition(statId, out var def)) return def;
-            Debug.LogError($"StatDatabase: No definition for statId {statId}.");
+            StatLog.Error($"StatDatabase: No definition for statId {statId}.");
             return null;
         }
 

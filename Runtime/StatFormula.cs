@@ -307,7 +307,7 @@ namespace RPG.Stats
             if (!_malformedLogged)
             {
                 _malformedLogged = true;
-                Debug.LogError(
+                StatLog.Error(
                     $"StatFormulaEvaluator: malformed formula at op {opIndex} ({reason}). " +
                     "This formula was not caught by Validate() at registration. Returning 0.");
             }

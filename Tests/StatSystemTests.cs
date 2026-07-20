@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace RPG.Stats.Tests
 {
@@ -48,6 +47,10 @@ namespace RPG.Stats.Tests
             StatManager.OnStatChanged -= OnStatChanged;
             ResourcePoolManager.Shutdown();
             StatManager.Shutdown();
+
+            // Backstop: a test that installs a log sink and throws before disposing it
+            // would otherwise leak the capture into every test that follows.
+            StatLog.Reset();
 
             if (_database != null)
             {
@@ -1905,9 +1908,9 @@ namespace RPG.Stats.Tests
         public void Test_InvalidFormulaRejected()
         {
             Log("--- Robustness: Invalid Formula Rejected ---");
-            // The system logs an (expected) error each time it rejects bad data;
-            // tell the Test Framework not to treat those as unexpected failures.
-            LogAssert.ignoreFailingMessages = true;
+            // Rejecting bad data must BOTH return false and say why. Capturing StatLog
+            // asserts the diagnostic instead of leaving it in the console as noise.
+            using var log = new LogCapture();
 
             // [Add] with nothing on the stack underflows — must be rejected at registration.
             var underflow = CreateDef(TestInvalidFormulaId, "Bad Underflow", 0f,
@@ -1915,6 +1918,8 @@ namespace RPG.Stats.Tests
                 formula: new[] { StatFormulaOp.Add() });
             Check("Underflow formula rejected",
                 !StatManager.RegisterStatDefinition(underflow));
+            Check("Underflow rejection reports the stat and the reason",
+                log.HasError($"stat {TestInvalidFormulaId}", "invalid formula"));
 
             // A formula that leaves two values on the stack (missing an operator) is invalid.
             var leftover = CreateDef(TestInvalidFormulaId, "Bad Leftover", 0f,
@@ -1922,6 +1927,8 @@ namespace RPG.Stats.Tests
                 formula: new[] { StatFormulaOp.Const(1f), StatFormulaOp.Const(2f) });
             Check("Formula leaving 2 stack values rejected",
                 !StatManager.RegisterStatDefinition(leftover));
+            Check("Both rejections were reported, not just the first",
+                log.ErrorCount == 2);
 
             // The static Validate API reports the failure with a message.
             bool badValid = StatFormulaEvaluator.Validate(new[] { StatFormulaOp.Add() }, out string error);
@@ -1943,8 +1950,9 @@ namespace RPG.Stats.Tests
         public void Test_DependencyCycleRejected()
         {
             Log("--- Robustness: Dependency Cycle Rejected ---");
-            // Rejections log an (expected) error; don't let the Test Framework fail on them.
-            LogAssert.ignoreFailingMessages = true;
+            // Each rejection must name the offending edge, not just return false. The
+            // capture holds the diagnostics so they can be asserted rather than printed.
+            using var log = new LogCapture();
 
             // A depends on B — accepted on its own (nothing depends on A yet).
             var cycleA = CreateDef(TestCycleAId, "Cycle A", 0f,
@@ -1957,6 +1965,7 @@ namespace RPG.Stats.Tests
                 });
             Check("First edge (A depends on B) accepted",
                 StatManager.RegisterStatDefinition(cycleA));
+            Check("Accepted registration is silent", log.ErrorCount == 0);
 
             // B depends on A — closes the loop, must be rejected as a cycle.
             var cycleB = CreateDef(TestCycleBId, "Cycle B", 0f,
@@ -1969,6 +1978,10 @@ namespace RPG.Stats.Tests
                 });
             Check("Closing edge (B depends on A) rejected as a cycle",
                 !StatManager.RegisterStatDefinition(cycleB));
+            Check("Cycle rejection names the offending edge",
+                log.HasError($"stat {TestCycleBId}",
+                             $"dependency on {TestCycleAId}",
+                             "dependency cycle"));
 
             // Self-dependency is a degenerate cycle and must also be rejected.
             var selfDep = CreateDef(TestSelfDepId, "Self Dep", 0f,
@@ -1981,6 +1994,10 @@ namespace RPG.Stats.Tests
                 });
             Check("Self-dependency rejected",
                 !StatManager.RegisterStatDefinition(selfDep));
+            Check("Self-dependency rejection names the stat as its own dependency",
+                log.HasError($"stat {TestSelfDepId}",
+                             $"dependency on {TestSelfDepId}",
+                             "dependency cycle"));
         }
 
         [Test, Category("TimedModifiers")]
@@ -2079,8 +2096,9 @@ namespace RPG.Stats.Tests
         public void Test_OverrideDefinition()
         {
             Log("--- Robustness: Override Stat Definition ---");
-            // The rejected-override path logs an (expected) error; don't fail the test on it.
-            LogAssert.ignoreFailingMessages = true;
+            // The rejected-override path must explain itself; the capture asserts that,
+            // and that the successful override path stays quiet.
+            using var log = new LogCapture();
 
             // Register a fresh stat: base 10, clamped to a max of 50.
             var original = CreateDef(TestOverrideId, "Overridable", 10f, hasMax: true, max: 50f);
@@ -2102,11 +2120,14 @@ namespace RPG.Stats.Tests
             var fresh = StatManager.RegisterEntity(stats);
             fresh.AddFlat(TestOverrideId, 1000f, 70002);
             Check("New entity clamps at new max 200", Approx(fresh.GetValue(TestOverrideId), 200f));
+            Check("Nothing logged so far (the happy path is silent)", log.ErrorCount == 0);
 
             // Overriding a stat that was never registered is rejected.
             var ghost = CreateDef(TestOverrideGhostId, "Ghost", 0f);
             Check("Override of unregistered stat rejected",
                 !StatManager.OverrideStatDefinition(ghost));
+            Check("Rejected override explains the cause",
+                log.HasError($"stat {TestOverrideGhostId}", "is not registered"));
 
             StatManager.UnregisterEntity(existing);
             StatManager.UnregisterEntity(fresh);
@@ -2124,6 +2145,79 @@ namespace RPG.Stats.Tests
         private static bool Approx(float a, float b, float tolerance = 0.001f)
         {
             return Mathf.Abs(a - b) < tolerance;
+        }
+
+        /// <summary>
+        /// Redirects <see cref="StatLog"/> into a buffer for the lifetime of the scope, so
+        /// error-path tests can assert on the diagnostic the system emits instead of letting
+        /// it reach the Unity console — where it reads as a failure even when the test passes.
+        ///
+        /// Usage: <c>using var log = new LogCapture();</c> at the top of the test, then
+        /// <c>log.HasError(...)</c> / <c>log.ErrorCount</c> after the call under test.
+        /// </summary>
+        private sealed class LogCapture : IDisposable
+        {
+            private readonly List<(LogType Type, string Message)> _entries = new();
+
+            public LogCapture()
+            {
+                StatLog.Handler = (type, message) => _entries.Add((type, message));
+            }
+
+            /// <summary>How many errors have been captured so far.</summary>
+            public int ErrorCount
+            {
+                get
+                {
+                    int count = 0;
+                    for (int i = 0; i < _entries.Count; i++)
+                        if (_entries[i].Type == LogType.Error) count++;
+                    return count;
+                }
+            }
+
+            /// <summary>
+            /// True if some captured error contains every one of the given fragments.
+            /// Fragment matching rather than whole-message equality, so a reworded
+            /// diagnostic doesn't fail the test as long as it still identifies the cause.
+            /// </summary>
+            public bool HasError(params string[] fragments) => Has(LogType.Error, fragments);
+
+            /// <summary>True if some captured warning contains every one of the fragments.</summary>
+            public bool HasWarning(params string[] fragments) => Has(LogType.Warning, fragments);
+
+            private bool Has(LogType type, string[] fragments)
+            {
+                for (int i = 0; i < _entries.Count; i++)
+                {
+                    if (_entries[i].Type != type) continue;
+
+                    bool all = true;
+                    for (int f = 0; f < fragments.Length; f++)
+                    {
+                        if (_entries[i].Message.Contains(fragments[f])) continue;
+                        all = false;
+                        break;
+                    }
+
+                    if (all) return true;
+                }
+                return false;
+            }
+
+            /// <summary>Dumps everything captured — handy when an assertion here fails.</summary>
+            public override string ToString()
+            {
+                if (_entries.Count == 0) return "LogCapture: (nothing captured)";
+
+                var sb = new System.Text.StringBuilder("LogCapture:\n");
+                for (int i = 0; i < _entries.Count; i++)
+                    sb.Append("  [").Append(_entries[i].Type).Append("] ")
+                      .AppendLine(_entries[i].Message);
+                return sb.ToString();
+            }
+
+            public void Dispose() => StatLog.Reset();
         }
 
         /// <summary>Bridges the suite's (message, condition) assertion style onto NUnit.</summary>
