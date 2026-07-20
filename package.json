@@ -1,0 +1,26 @@
+{
+  "name": "com.galaxygourd.stats",
+  "version": "1.0.0",
+  "displayName": "GourdStats",
+  "description": "Stat derivations and modifiers for RPG systems.",
+  "unity": "2021.3",
+  "keywords": [
+    "rpg",
+    "stats",
+    "modifiers",
+    "attributes",
+    "gameplay"
+  ],
+  "author": {
+    "name": "Galaxy Gourd",
+    "url": "http://www.mstephensdev.com/",
+    "email": "mstephens.dev@gmail.com"
+  },
+  "samples": [
+    {
+      "displayName": "Usage Example",
+      "description": "A MonoBehaviour walkthrough: boot, plugin-style registration, equipment/potions, batch queries, and save capture.",
+      "path": "Samples~/UsageExample"
+    }
+  ]
+}

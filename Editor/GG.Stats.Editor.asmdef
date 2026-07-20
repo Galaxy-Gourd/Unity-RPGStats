@@ -1,0 +1,18 @@
+{
+    "name": "GG.Stats.Editor",
+    "rootNamespace": "GalaxyGourd.RPG.Stats.Editor",
+    "references": [
+        "GG.Stats"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
