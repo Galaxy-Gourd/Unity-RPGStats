@@ -4,6 +4,7 @@
   "displayName": "GourdStats",
   "description": "Stat derivations and modifiers for RPG systems.",
   "unity": "2021.3",
+  "license": "MIT",
   "keywords": [
     "rpg",
     "stats",
